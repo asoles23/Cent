@@ -19,10 +19,17 @@ else
   echo "$IP (Valid)"
 fi
 
-# 3. Check Default Gateway Reachability
-GATEWAY=$(ip route | awk '/default/ {print $3}')
-echo -n "3. Default gateway ($GATEWAY) ping result: "
-ping -c 1 -w 1 $GATEWAY &> /dev/null && echo "Reachable" || echo "Unreachable"
+# 3. Check Default Gateway associated with eth0.2
+echo -n "3. Default gateway for $DEVICE: "
+GATEWAY=$(ip route | awk -v dev="$DEVICE" '$0 ~ dev && $1 == "default" 
+{print $3; exit}')
+if [[ -z "$GATEWAY" ]]; then
+  echo "Not found"
+else
+  echo "$GATEWAY"
+
+  echo -n "   Ping test to $GATEWAY: "
+  ping -I $DEVICE -c 1 -w 1 $GATEWAY &> /dev/null && echo "Reachable"
 
 # 4. Check DNS Resolution
 echo -n "4. DNS resolution test for remoteiot.com: "
