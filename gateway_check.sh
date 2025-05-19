@@ -8,19 +8,20 @@ echo "===== Centegix Gateway Diagnostic ====="
 echo -n "1. Interface $DEVICE status: "
 ip -o link show $DEVICE | awk '{print $9}'
 
-# 2. Check IP address on eth0.2 (must not be 169.254.x.x)
+# 2. Extract a VALID (non-169.254) IP address from eth0.2
 echo -n "2. IP address on $DEVICE: "
-IP=$(ip -4 addr show $DEVICE | awk '/inet / {print $2}' | cut -d/ -f1)
-if echo "$IP" | grep -q "^169\.254\."; then
-  echo "$IP (Invalid - Link-local)"
+IP=$(ip -4 addr show $DEVICE | awk '/inet / {print $2}' | cut -d/ 
+-f1 | grep -v "^169\.254\.")
+if [ -z "$IP" ]; then
+  echo "None found (only link-local or unassigned)"
 else
   echo "$IP (Valid)"
 fi
 
-# 3. Check Default Gateway associated with eth0.2
+# 3. Get the default gateway for eth0.2 only
 echo -n "3. Default gateway for $DEVICE: "
-GATEWAY=$(ip route | awk -v dev="$DEVICE" '$0 ~ dev && $1 == "default" 
-{print $3; exit}')
+GATEWAY=$(ip route | awk -v dev="$DEVICE" '$1 == "default" && $0 ~ 
+dev {print $3; exit}')
 if [ -z "$GATEWAY" ]; then
   echo "Not found"
 else
@@ -31,19 +32,25 @@ else
 "Reachable" || echo "Unreachable"
 fi
 
-# 4. DNS Resolution Check (centegix.wisdm.rakwireless.com)
-echo -n "4. DNS resolution test for centegix.wisdm.rakwireless.com: "
-host centegix.wisdm.rakwireless.com > /dev/null 2>&1 && echo 
-"Successful" || echo "Failed"
+# 4. DNS Resolution Check
+echo -n "4. DNS resolution test for centegix.wisdm.rakwireless.com: 
+"
+if host centegix.wisdm.rakwireless.com > /dev/null 2>&1; then
+  echo "Successful"
+else
+  echo "Failed"
+fi
 
-# 5. Active connections using eth0.2 IP
+# 5. Active connections using valid IP
 echo "5. Active connections using IP $IP:"
-if [ -n "$IP" ] && ! echo "$IP" | grep -q "^169\.254\."; then
+if [ -n "$IP" ]; then
   netstat -an | grep "$IP" || echo "No active connections found"
 else
   echo "Skipped (No valid IP address to check)"
 fi
 
 echo "===== Diagnostics Complete ====="
+
+
 
 
