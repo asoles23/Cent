@@ -6,61 +6,48 @@ WISDM_SERVERS="172.104.6.188 remonteiot.com google.com"
 echo "===== Centegix Gateway Diagnostics ====="
 echo "Running on $(cat /etc/hostname 2>/dev/null || echo unknown) at $(date)"
 
-echo
-echo "===== Step 1: Interface Info for $IFACE ====="
-ifconfig $IFACE | grep -E "inet addr|HWaddr|RUNNING"
+# Step 1: Interface status
+IF_STATUS=$(ifconfig $IFACE 2>/dev/null | grep -q "RUNNING" && echo "UP" || echo "DOWN")
+echo "1. Interface $IFACE status: $IF_STATUS"
 
-echo
-echo "===== Step 2: Skipped ====="
-
-echo
-echo "===== Step 3: IP Assignment Type for $IFACE ====="
-if ps | grep -q "[u]dhcpc.*$IFACE"; then
-  echo "$IFACE is using DHCP (udhcpc is active)"
+# Step 2: IP Address
+IP_ADDR=$(ip -4 addr show $IFACE | awk '/inet / {print $2}' | cut -d/ -f1)
+if [ -n "$IP_ADDR" ]; then
+  echo "2. IP address on $IFACE: $IP_ADDR"
 else
-  echo "$IFACE is likely using a static IP"
+  echo "2. IP address on $IFACE: Not found"
 fi
 
-echo
-echo "===== Step 4: Default Gateway Check ====="
+# Step 3: Default Gateway and Ping
 GW=$(ip route | grep "^default.*$IFACE" | awk '{print $3}')
 if [ -n "$GW" ]; then
-  echo "Default Gateway: $GW"
   ping -I $IFACE -c 2 -W 1 $GW > /dev/null 2>&1
-  if [ $? -eq 0 ]; then
-    echo "Ping Test: Reachable"
-  else
-    echo "Ping Test: Unreachable"
-  fi
+  STATUS=$([ $? -eq 0 ] && echo "Reachable" || echo "Unreachable")
+  echo "3. Default Gateway: $GW Ping Test to $GW is $STATUS"
 else
-  echo "No default gateway found on $IFACE"
+  echo "3. Default Gateway: Not found on $IFACE"
 fi
 
-echo
-echo "===== Step 5: DNS Resolution via $IFACE ====="
+# Step 4: DNS resolution via eth0.2
 SRC_IP=$(ip -4 addr show $IFACE | awk '/inet / {print $2}' | cut -d/ -f1)
+echo "4. DNS Resolution via $IFACE:"
 if [ -z "$SRC_IP" ]; then
-  echo "No valid IP found on $IFACE"
+  echo "   No valid IP to test DNS"
 else
   for domain in $WISDM_SERVERS; do
-    echo -n "Resolving $domain... "
     curl --interface "$SRC_IP" --max-time 5 -s "http://$domain" > /dev/null
-    if [ $? -eq 0 ]; then
-      echo "Success"
-    else
-      echo "Failed"
-    fi
+    RESULT=$([ $? -eq 0 ] && echo "Success" || echo "Failed")
+    echo "   $domain: $RESULT"
   done
 fi
 
-echo
-echo "===== Step 6: Active Connections (Filtered) ====="
+# Step 5: Active Connections (Filtered)
+echo "5. Active Connections (Filtered):"
 if netstat -anp 2>/dev/null | grep -q .; then
   netstat -anp | grep -E 'ESTABLISHED|443|8883|172\.104\.6\.188'
 else
   netstat -an | grep -E 'ESTABLISHED|443|8883|172\.104\.6\.188'
 fi
 
-echo
 echo "===== Diagnostics Complete ====="
 
