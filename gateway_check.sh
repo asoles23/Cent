@@ -11,9 +11,9 @@ IF_STATUS=$(ifconfig $IFACE 2>/dev/null | grep -q "RUNNING" && echo "UP" || echo
 echo
 echo "1. Interface $IFACE status: $IF_STATUS"
 
-# Step 2: IP address (BusyBox safe)
-IP_ADDR=$(ifconfig $IFACE 2>/dev/null | grep 'inet addr' | grep -v '169.254' | sed -n 
-'s/.*inet addr:\([0-9.]*\).*/\1/p')
+# Step 2: IP address (BusyBox safe for 'inet addr:')
+IP_ADDR=$(ifconfig $IFACE 2>/dev/null | grep 'inet addr:' | grep -v '169.254' | sed 
+'s/.*inet addr:\([0-9.]*\).*/\1/')
 if [ -n "$IP_ADDR" ]; then
   echo "2. IP address on $IFACE: $IP_ADDR"
 else
@@ -59,9 +59,11 @@ fi
 echo
 echo "6. Active Connections (Filtered):"
 if netstat -anp 2>/dev/null | grep -q .; then
-  netstat -anp | grep -E 'ESTABLISHED|443|8883|172\.104\.6\.188'
+  netstat -anp | grep ESTABLISHED | grep -v '127.0.0.1' | grep -E 
+'443|8883|172\.104\.6\.188'
 else
-  netstat -an | grep -E 'ESTABLISHED|443|8883|172\.104\.6\.188'
+  netstat -an | grep ESTABLISHED | grep -v '127.0.0.1' | grep -E 
+'443|8883|172\.104\.6\.188'
 fi
 
 echo
