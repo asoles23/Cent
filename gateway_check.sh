@@ -6,14 +6,14 @@ WISDM_SERVERS="172.104.6.188 remonteiot.com google.com"
 echo "===== Centegix Gateway Connectivity Check ====="
 echo "Running on $(cat /etc/hostname 2>/dev/null || echo unknown) at $(date)"
 
-# Step 1: Interface status
-IF_STATUS=$(ifconfig $IFACE 2>/dev/null | grep -q "RUNNING" && echo "UP" || echo "DOWN")
+# Step 1: Interface status (no BusyBox leak)
+IF_UP=$(ifconfig $IFACE 2>/dev/null | grep -q "RUNNING" && echo "UP" || echo "DOWN")
 echo
-echo "1. Interface $IFACE status: $IF_STATUS"
+echo "1. Interface $IFACE status: $IF_UP"
 
-# Step 2: IP address (BusyBox safe)
-IP_ADDR=$(ifconfig $IFACE | grep -e 'inet addr:' | grep -v -e '169.254' | awk -F: 
-'{print $2}' | awk '{print $1}')
+# Step 2: Extract IP from ifconfig for eth0.2 (BusyBox-friendly)
+IP_ADDR=$(ifconfig $IFACE | awk '/inet addr:/ && $2 !~ /169\.254/ {for(i=1;i<=NF;i++) 
+if($i ~ /^addr:/) {split($i,a,":"); print a[2]}}')
 if [ -n "$IP_ADDR" ]; then
   echo "2. IP address on $IFACE: $IP_ADDR"
 else
