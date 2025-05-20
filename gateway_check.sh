@@ -11,9 +11,10 @@ IF_STATUS=$(ifconfig $IFACE 2>/dev/null | grep -q "RUNNING" && echo "UP" || echo
 echo
 echo "1. Interface $IFACE status: $IF_STATUS"
 
-# Step 2: IP address (exclude link-local)
-IP_ADDR=$(ifconfig $IFACE 2>/dev/null | awk '/inet addr/ && $2 !~ /^169\.254/ 
-{gsub("addr:", "", $2); print $2}' | head -1)
+# Step 2: IP address (exclude 169.254)
+IP_ADDR=$(ifconfig $IFACE 2>/dev/null | grep 'inet addr' | awk 
+'{for(i=1;i<=NF;i++){if($i ~ /^addr:/ && $i !~ /^addr:169\.254/){gsub("addr:", "", $i); 
+print $i}}}')
 if [ -n "$IP_ADDR" ]; then
   echo "2. IP address on $IFACE: $IP_ADDR"
 else
