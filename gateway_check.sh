@@ -11,9 +11,9 @@ IF_STATUS=$(ifconfig $IFACE 2>/dev/null | grep -q "RUNNING" && echo "UP" || echo
 echo
 echo "1. Interface $IFACE status: $IF_STATUS"
 
-# Step 2: IP address (BusyBox-safe with awk)
-IP_ADDR=$(ifconfig $IFACE | grep 'inet addr:' | grep -v '169.254' | awk -F: '{print $2}' 
-| awk '{print $1}')
+# Step 2: IP address (BusyBox safe)
+IP_ADDR=$(ifconfig $IFACE | grep -e 'inet addr:' | grep -v -e '169.254' | awk -F: 
+'{print $2}' | awk '{print $1}')
 if [ -n "$IP_ADDR" ]; then
   echo "2. IP address on $IFACE: $IP_ADDR"
 else
@@ -30,11 +30,42 @@ else
 fi
 
 # Step 4: Default Gateway and Ping Test
-GW=$(ip route | grep "^default.*$IFACE" | awk '{print $3}')
+GW=$(ip route | grep -e "^default" | grep -e "$IFACE" | awk '{print $3}')
 echo
 if [ -n "$GW" ]; then
   ping -I $IFACE -c 2 -W 1 $GW > /dev/null 2>&1
   STATUS=$([ $? -eq 0 ] && echo "Reachable" || echo "Unreachable")
   echo "4. Default Gateway: $GW"
-  echo "   Ping Test to $GW is $STA
+  echo "   Ping Test to $GW is $STATUS"
+else
+  echo "4. Default Gateway: Not found on $IFACE"
+fi
+
+# Step 5: DNS Resolution via eth0.2
+echo
+echo "5. DNS Resolution via $IFACE:"
+SRC_IP="$IP_ADDR"
+if [ -z "$SRC_IP" ]; then
+  echo "   No valid IP to test DNS"
+else
+  for domain in $WISDM_SERVERS; do
+    curl --interface "$SRC_IP" --max-time 5 -s "http://$domain" > /dev/null
+    RESULT=$([ $? -eq 0 ] && echo "Success" || echo "Failed")
+    echo "   $domain: $RESULT"
+  done
+fi
+
+# Step 6: Active Connections (Filtered, BusyBox-safe)
+echo
+echo "6. Active Connections (Filtered):"
+if netstat -anp 2>/dev/null | grep -q .; then
+  netstat -anp | grep -e ESTABLISHED | grep -v -e '127.0.0.1' | grep -e '443' -e '8883' 
+-e '172.104.6.188'
+else
+  netstat -an | grep -e ESTABLISHED | grep -v -e '127.0.0.1' | grep -e '443' -e '8883' 
+-e '172.104.6.188'
+fi
+
+echo
+echo "===== Diagnostics Complete ====="
 
