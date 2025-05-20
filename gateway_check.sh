@@ -11,9 +11,7 @@ echo "===== Step 1: Interface Info for $IFACE ====="
 ifconfig $IFACE | grep -E "inet addr|HWaddr|RUNNING"
 
 echo
-echo "===== Step 2: IP & Route Verification ====="
-ip addr show $IFACE | grep "inet "
-ip route | grep $IFACE | grep default
+echo "===== Step 2: Skipped ====="
 
 echo
 echo "===== Step 3: IP Assignment Type for $IFACE ====="
