@@ -51,19 +51,16 @@ else
   done
 fi
 
-# Step 6: Active Connections (Filtered by IP)
+# Step 6: Active Connections (Filtered by IP or wildcard binding)
 echo
 echo "6. Active Connections (Filtered):"
-if [ -n "$IP_ADDR" ]; then
-  if netstat -anp 2>/dev/null | grep -q .; then
-    netstat -anp | grep "$IP_ADDR" | grep ESTABLISHED | while read line; do
-      echo "   $line"
-    done
-  else
-    echo "   No active connections found"
-  fi
+if netstat -anp 2>/dev/null | grep -q .; then
+  netstat -anp | grep ESTABLISHED | while read line; do
+    echo "$line" | grep -q "$IP_ADDR" && echo "   $line" && continue
+    echo "$line" | grep -q '0.0.0.0' && echo "   $line" && continue
+  done
 else
-  echo "   Cannot check active connections (no valid IP on $IFACE)"
+  echo "   No active connections found"
 fi
 
 echo
