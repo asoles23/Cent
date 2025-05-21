@@ -51,20 +51,15 @@ else
   done
 fi
 
-# Step 6: Active Connections (by IP or 0.0.0.0)
+# Step 6: Active Connections bound to eth0.2 IP
 echo
-echo "6. Active Connections (Filtered):"
+echo "6. Active Connections (Bound to $IP_ADDR):"
 if [ -n "$IP_ADDR" ]; then
-  if netstat -anp 2>/dev/null | grep -q .; then
-    netstat -anp | while read line; do
-      echo "$line" | grep "$IP_ADDR" > /dev/null && echo "   $line" && continue
-      echo "$line" | grep "0.0.0.0" > /dev/null && echo "   $line" && continue
-    done
-  else
-    echo "   No active connections found"
-  fi
+  netstat -anp 2>/dev/null | grep "$IP_ADDR" | while read line; do
+    echo "   $line"
+  done
 else
-  echo "   Cannot check active connections (no valid IP on $IFACE)"
+  echo "   No valid IP to filter connections."
 fi
 
 echo
