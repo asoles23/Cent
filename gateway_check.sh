@@ -18,17 +18,19 @@ else
   echo "   eth0.2 is DOWN or not found"
 fi
 
-# Step 2: IP address on eth0.2
+# Step 2: IP address on eth0.2 (BUSYBOX SAFE)
 echo ""
 echo "2. IP address on eth0.2:"
 PRIMARY_IP=""
-for IP in `ip -4 addr show eth0.2 | grep 'inet ' | awk '{print $2}' | cut 
--d/ -f1`; do
+IP_LIST=`ip -4 addr show eth0.2 | grep 'inet ' | awk '{print $2}' | cut 
+-d/ -f1`
+for IP in $IP_LIST; do
   echo "$IP" | grep "^169\." >/dev/null
   if [ $? -ne 0 ] && [ "$PRIMARY_IP" = "" ]; then
     PRIMARY_IP="$IP"
   fi
 done
+
 if [ "$PRIMARY_IP" != "" ]; then
   echo "   IP Address: $PRIMARY_IP"
 else
