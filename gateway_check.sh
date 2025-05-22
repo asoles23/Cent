@@ -67,5 +67,6 @@ echo "5. Connectivity Test to Hostnames via eth0.2:"
 for HOST in google.com centegix.wisdm.rakwireless.com centegix.com; do
   for PORT in 80 443; do
     nc -zvw2 $HOST $PORT >/dev/null 2>&1
-    if
+    if [ $? -eq 0 ]; then
+      printf "   %-40s : Reachable\
 
