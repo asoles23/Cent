@@ -15,21 +15,24 @@ ip link show eth0.2 2>/dev/null | grep "state UP" >/dev/null
 [ $? -eq 0 ] && echo "   eth0.2 is UP" || echo "   eth0.2 is DOWN or not 
 found"
 
-# Step 2: IP address on eth0.2 (BusyBox-safe, no nesting)
+# Step 2: IP address on eth0.2 (BusyBox-safe with persistent variable)
 echo ""
 echo "2. IP address on eth0.2:"
 PRIMARY_IP=""
-ip -4 addr show eth0.2 | grep 'inet ' | while read -r line; do
-  IP_WITH_MASK=$(echo "$line" | awk '{print $2}')
-  CLEAN_IP=$(echo "$IP_WITH_MASK" | cut -d/ -f1)
+for IP in $(ip -4 addr show eth0.2 | awk '/inet / {print $2}'); do
+  CLEAN_IP=$(echo "$IP" | cut -d/ -f1)
   echo "$CLEAN_IP" | grep "^169\." >/dev/null
-  if [ $? -ne 0 ] && [ -z "$PRIMARY_IP" ]; then
+  if [ $? -ne 0 ]; then
     PRIMARY_IP="$CLEAN_IP"
-    echo "   IP Address: $PRIMARY_IP"
+    break
   fi
 done
 
-[ -z "$PRIMARY_IP" ] && echo "   No valid IP assigned"
+if [ -n "$PRIMARY_IP" ]; then
+  echo "   IP Address: $PRIMARY_IP"
+else
+  echo "   No valid IP assigned"
+fi
 
 # Step 3: IP assignment type
 echo ""
