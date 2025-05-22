@@ -1,63 +1,63 @@
 #!/bin/sh
 
-IFACE="eth0.2"
-WISDM_SERVERS="google.com centegix.wisdm.rakwireless.com centegix.com"
-
-echo
+echo ""
 echo "===== Centegix Gateway Connectivity Check ====="
+echo "Running on $(hostname) at $(date)"
 
-HOST=$(hostname 2>/dev/null)
-[ -z "$HOST" ] && HOST="unknown"
-echo "Running on $HOST at $(date)"
-echo
-
-# Step 1: Interface status
-IF_STATUS=$(ifconfig $IFACE 2>/dev/null | grep -q "RUNNING" && echo "UP" || echo "DOWN")
-echo "1. Interface $IFACE status: $IF_STATUS"
-
-# Step 2: IP address
-IP_LINE=$(ifconfig $IFACE 2>/dev/null | grep 'inet addr:' | grep -v '169.254')
-IP_ADDR=$(echo "$IP_LINE" | cut -d':' -f2 | cut -d' ' -f1)
-echo "2. IP address on $IFACE: ${IP_ADDR:-Not found}"
-
-# Step 3: DHCP or Static
-echo "3. IP Assignment Type:"
-if ps | grep udhcpc | grep -q "$IFACE"; then
-  echo "   $IFACE is using DHCP (udhcpc is active)"
+# Step 1: Check if eth0.2 exists and is up
+echo ""
+echo "1. Interface eth0.2 status:"
+ip link show eth0.2 | grep -q "state UP"
+if [ $? -eq 0 ]; then
+  echo "   eth0.2 is UP"
 else
-  echo "   $IFACE is likely using a static IP"
+  echo "   eth0.2 is DOWN or does not exist"
 fi
 
-# Step 4: DNS + Port 80 Reachability
-echo
-echo "4. DNS + Port 80 Reachability via $IFACE:"
-if [ -z "$IP_ADDR" ]; then
-  echo "   No valid IP to test DNS or connections"
+# Step 2: Display IP address for eth0.2
+echo ""
+echo "2. IP address on eth0.2:"
+IP_ADDR=$(ip addr show eth0.2 | awk '/inet / {print $2}' | cut -d'/' -f1)
+if [ -n "$IP_ADDR" ]; then
+  echo "   IP Address: $IP_ADDR"
 else
-  for domain in $WISDM_SERVERS; do
-    IP_RESOLVED=$(nslookup "$domain" 2>/dev/null | grep -A1 "Name:" | grep "Address" | 
-tail -n1 | awk '{print $2}')
-    if [ -n "$IP_RESOLVED" ]; then
-      nc -z -w 3 "$domain" 80 > /dev/null 2>&1
-      STATUS=$([ $? -eq 0 ] && echo "Success" || echo "Unreachable")
-      printf "   %-30s : DNS OK, Port 80 %s\n" "$domain" "$STATUS"
+  echo "   No IP address assigned"
+fi
+
+# Step 3: Gateway connectivity check
+echo ""
+echo "3. Default Gateway:"
+DEFAULT_GW=$(ip route show dev eth0.2 | awk '/default/ {print $3}')
+if [ -n "$DEFAULT_GW" ]; then
+  echo "   Default Gateway: $DEFAULT_GW"
+  if ping -c 2 -I eth0.2 -W 2 "$DEFAULT_GW" >/dev/null 2>&1; then
+    echo "   Ping Test to $DEFAULT_GW: Reachable"
+  else
+    echo "   Ping Test to $DEFAULT_GW: Unreachable"
+  fi
+else
+  echo "   Default Gateway not found on eth0.2"
+fi
+
+# Step 4: Reachability check with netcat (nc)
+echo ""
+echo "4. Reachability Test via nc (ports 80 and 443):"
+HOSTS="google.com centegix.com centegix.wisdm.rakwireless.com"
+for HOST in $HOSTS; do
+  for PORT in 80 443; do
+    if nc -zvw2 "$HOST" "$PORT" >/dev/null 2>&1; then
+      echo "   $HOST:$PORT - Reachable"
     else
-      printf "   %-30s : DNS Failed\n" "$domain"
+      echo "   $HOST:$PORT - Unreachable"
     fi
   done
-fi
+done
 
-# Step 5: Active Connections bound to eth0.2 IP
-echo
+# Step 5: Active connections
+echo ""
 echo "5. Active Connections (Bound to $IP_ADDR):"
-if [ -n "$IP_ADDR" ]; then
-  netstat -anp 2>/dev/null | grep "$IP_ADDR" | while read line; do
-    echo "   $line"
-  done
-else
-  echo "   No valid IP to filter connections."
-fi
+netstat -tunlp | grep "$IP_ADDR"
 
-echo
-echo "===== Diagnostics Complete ====="
+echo ""
+echo "===== Connectivity Check Complete ====="
 
