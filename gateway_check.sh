@@ -28,32 +28,28 @@ else
   echo "   $IFACE is likely using a static IP"
 fi
 
-# Step 4: Default Gateway and Ping Test
-GW=$(ip route | grep "^default" | grep "$IFACE" | cut -d' ' -f3)
+# Step 4: DNS + Port 80 Reachability
 echo
-echo "4. Default Gateway: ${GW:-Not found on $IFACE}"
-if [ -n "$GW" ]; then
-  ping -I $IFACE -c 2 -W 1 $GW > /dev/null 2>&1
-  STATUS=$([ $? -eq 0 ] && echo "Reachable" || echo "Unreachable")
-  echo "   Ping Test to $GW is $STATUS"
-fi
-
-# Step 5: DNS Resolution
-echo
-echo "5. DNS Resolution via $IFACE:"
+echo "4. DNS + Port 80 Reachability via $IFACE:"
 if [ -z "$IP_ADDR" ]; then
-  echo "   No valid IP to test DNS"
+  echo "   No valid IP to test DNS or connections"
 else
   for domain in $WISDM_SERVERS; do
-    curl --interface "$IP_ADDR" --max-time 5 -s "http://$domain" > /dev/null
-    RESULT=$([ $? -eq 0 ] && echo "Success" || echo "Failed")
-    printf "   %-30s : %s\n" "$domain" "$RESULT"
+    IP_RESOLVED=$(nslookup "$domain" 2>/dev/null | grep -A1 "Name:" | grep "Address" | 
+tail -n1 | awk '{print $2}')
+    if [ -n "$IP_RESOLVED" ]; then
+      nc -z -w 3 "$domain" 80 > /dev/null 2>&1
+      STATUS=$([ $? -eq 0 ] && echo "Success" || echo "Unreachable")
+      printf "   %-30s : DNS OK, Port 80 %s\n" "$domain" "$STATUS"
+    else
+      printf "   %-30s : DNS Failed\n" "$domain"
+    fi
   done
 fi
 
-# Step 6: Active Connections bound to eth0.2 IP
+# Step 5: Active Connections bound to eth0.2 IP
 echo
-echo "6. Active Connections (Bound to $IP_ADDR):"
+echo "5. Active Connections (Bound to $IP_ADDR):"
 if [ -n "$IP_ADDR" ]; then
   netstat -anp 2>/dev/null | grep "$IP_ADDR" | while read line; do
     echo "   $line"
