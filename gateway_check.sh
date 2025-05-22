@@ -4,9 +4,9 @@ echo ""
 echo "===== Centegix Gateway Connectivity Check ====="
 
 # Step 0: Hostname and time
-HOST=`hostname 2>/dev/null`
+HOST=$(hostname 2>/dev/null)
 if [ "$HOST" = "" ]; then HOST="unknown"; fi
-echo "Running on $HOST at `date`"
+echo "Running on $HOST at $(date)"
 
 # Step 1: Interface status
 echo ""
@@ -22,12 +22,11 @@ fi
 echo ""
 echo "2. IP address on eth0.2:"
 PRIMARY_IP=""
-IP_LIST=`ip -4 addr show eth0.2 | grep 'inet ' | awk '{print $2}' | cut -d/ 
--f1`
-for IP in $IP_LIST; do
-  echo "$IP" | grep "^169\." >/dev/null
+for IP in $(ip -4 addr show eth0.2 | grep 'inet ' | awk '{print $2}'); do
+  CLEAN_IP=$(echo "$IP" | cut -d/ -f1)
+  echo "$CLEAN_IP" | grep "^169\." >/dev/null
   if [ $? -ne 0 ] && [ "$PRIMARY_IP" = "" ]; then
-    PRIMARY_IP="$IP"
+    PRIMARY_IP="$CLEAN_IP"
   fi
 done
 
@@ -40,7 +39,7 @@ fi
 # Step 3: IP assignment type
 echo ""
 echo "3. IP Assignment Type:"
-UDHCPC_CHECK=`ps | grep "udhcpc.*eth0.2" | grep -v grep`
+UDHCPC_CHECK=$(ps | grep "udhcpc.*eth0.2" | grep -v grep)
 if [ "$UDHCPC_CHECK" != "" ]; then
   echo "   eth0.2 is using DHCP (udhcpc is active)"
 else
@@ -48,7 +47,7 @@ else
 fi
 
 # Step 4: Default Gateway
-DEFAULT_GW=`ip route show dev eth0.2 | grep "default" | awk '{print $3}'`
+DEFAULT_GW=$(ip route show dev eth0.2 | grep "default" | awk '{print $3}')
 echo ""
 echo "4. Default Gateway: $DEFAULT_GW"
 ping -c 2 -I eth0.2 -W 2 $DEFAULT_GW >/dev/null 2>&1
@@ -58,7 +57,7 @@ else
   echo "   Ping Test to $DEFAULT_GW is Unreachable"
 fi
 
-# Step 5: Connectivity Test to Hostnames
+# Step 5: Connectivity Test to Hostnames via eth0.2
 echo ""
 echo "5. Connectivity Test to Hostnames via eth0.2:"
 for HOSTNAME in google.com centegix.wisdm.rakwireless.com centegix.com; do
@@ -75,7 +74,11 @@ done
 # Step 6: Active connections (filtered by eth0.2 IP)
 echo ""
 echo "6. Active Connections (Bound to $PRIMARY_IP):"
-netstat -anp 2>/dev/null | grep "$PRIMARY_IP" | sed 's/^/   /'
+if [ "$PRIMARY_IP" != "" ]; then
+  netstat -anp 2>/dev/null | grep "$PRIMARY_IP" | sed 's/^/   /'
+else
+  echo "   Skipped — No valid IP found on eth0.2"
+fi
 
 echo ""
 echo "===== Diagnostics Complete ====="
