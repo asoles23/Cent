@@ -7,30 +7,36 @@ echo ""
 echo "===== Centegix Gateway Connectivity Check ====="
 echo "Running on $HOST at $(date)"
 
-# Step 1: Check interface status
+# Step 1: Interface status
 echo ""
 echo "1. Interface eth0.2 status:"
-ip link show eth0.2 | grep -q "state UP"
-if [ $? -eq 0 ]; then
+if ip link show eth0.2 2>/dev/null | grep -q "state UP"; then
   echo "   eth0.2 is UP"
 else
   echo "   eth0.2 is DOWN or does not exist"
 fi
 
-# Step 2: IP address on eth0.2 (filter out link-local 169.*)
+# Step 2: IP address (exclude 169.254.*)
 echo ""
 echo "2. IP address on eth0.2:"
-IP_ADDRS=$(ip -4 addr show eth0.2 | awk '/inet / {print $2}' | cut -d'/' -f1 | grep -v 
-'^169\.')
-if [ -n "$IP_ADDRS" ]; then
-  for IP in $IP_ADDRS; do
+IP_ADDRS=$(ip -4 addr show eth0.2 | awk '/inet / {print $2}' | cut -d'/' -f1)
+VALID_IPS=""
+for IP in $IP_ADDRS; do
+  case "$IP" in
+    169.254.*) ;;  # skip link-local
+    *) VALID_IPS="$VALID_IPS $IP" ;;
+  esac
+done
+
+if [ -n "$VALID_IPS" ]; then
+  for IP in $VALID_IPS; do
     echo "   IP Address: $IP"
   done
 else
   echo "   No valid global IP address assigned"
 fi
 
-# Step 3: Default gateway ping test
+# Step 3: Default Gateway
 echo ""
 echo "3. Default Gateway:"
 DEFAULT_GW=$(ip route show dev eth0.2 | awk '/default/ {print $3}')
@@ -59,13 +65,17 @@ for HOST in $HOSTS; do
   done
 done
 
-# Step 5: Active connections bound to each global IP
+# Step 5: Active Connections
 echo ""
 echo "5. Active Connections (Bound to IPs):"
-for IP in $IP_ADDRS; do
-  echo "   Connections for $IP:"
-  netstat -tunlp 2>/dev/null | grep "$IP" | sed 's/^/      /'
-done
+if [ -n "$VALID_IPS" ]; then
+  for IP in $VALID_IPS; do
+    echo "   Connections for $IP:"
+    netstat -tunlp 2>/dev/null | grep "$IP" | sed 's/^/      /'
+  done
+else
+  echo "   No valid IPs to check connections."
+fi
 
 echo ""
 echo "===== Connectivity Check Complete ====="
