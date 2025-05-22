@@ -52,13 +52,4 @@ ping -c 2 -I eth0.2 -W 2 $DEFAULT_GW >/dev/null 2>&1
 if [ $? -eq 0 ]; then
   echo "   Ping Test to $DEFAULT_GW is Reachable"
 else
-  echo "   Ping Test to $DEFAULT_GW is Unreachable"
-fi
-
-# Step 5: Connectivity Test to Hostnames
-echo ""
-echo "5. Connectivity Test to Hostnames via eth0.2:"
-for HOSTNAME in google.com centegix.wisdm.rakwireless.com centegix.com; do
-  for PORT in 80 443; do
-    nc -zvw2 $HOSTNAME $
 
